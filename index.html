@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ML Based Auto Correct System</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+    }
+
+    .container {
+        width: 95%;
+        max-width: 600px;
+        background: #fff;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        padding: 30px 25px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    h2 {
+        font-size: 2.5rem;
+        margin-bottom: 25px;
+        color: #333;
+    }
+
+    input, textarea {
+        width: 100%;
+        padding: 15px 12px;
+        margin: 12px 0;
+        border-radius: 12px;
+        border: 1px solid #ccc;
+        font-size: 1.2rem;
+        transition: all 0.2s ease;
+    }
+
+    input:focus, textarea:focus {
+        border-color: #007BFF;
+        box-shadow: 0 0 10px rgba(0,123,255,0.2);
+        outline: none;
+    }
+
+    button {
+        width: 100%;
+        padding: 15px;
+        margin: 10px 0;
+        border: none;
+        border-radius: 12px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        cursor: pointer;
+        background: linear-gradient(to right, #007BFF, #00C6FF);
+        color: white;
+        transition: all 0.3s ease;
+    }
+
+    button:hover {
+        background: linear-gradient(to right, #0056b3, #00aaff);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+
+    .output, .history, #authMsg {
+        background: #f1f1f1;
+        padding: 15px;
+        border-radius: 12px;
+        margin-top: 15px;
+        font-size: 1.1rem;
+        white-space: pre-wrap;
+        text-align: left;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .output h3 {
+        margin: 10px 0 5px;
+        color: #007BFF;
+    }
+
+    .hidden { display: none; }
+
+    .nav-button {
+        background: linear-gradient(to right, #28a745, #7be495);
+    }
+
+    .nav-button:hover {
+        background: linear-gradient(to right, #1e7e34, #5ccf7e);
+    }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h2>ML Based Auto Correct System</h2>
+
+    <!-- Authentication Tab -->
+    <div id="authTab">
+        <input type="text" id="username" placeholder="Username">
+        <input type="password" id="password" placeholder="Password">
+        <button onclick="register()">Register</button>
+        <button onclick="login()">Login</button>
+        <div id="authMsg"></div>
+    </div>
+
+    <!-- Correction Tab -->
+    <div id="correctTab" class="hidden">
+        <textarea id="inputText" rows="5" placeholder="Type your text here..."></textarea>
+        <button onclick="correctText()">Correct</button>
+        <div class="output" id="outputText"></div>
+        <button class="nav-button" onclick="showTab('historyTab')">View History</button>
+        <button class="nav-button" onclick="logout()">Logout</button>
+    </div>
+
+    <!-- History Tab -->
+    <div id="historyTab" class="hidden">
+        <button onclick="getHistory()">Refresh History</button>
+        <div class="history" id="historyList"></div>
+        <button class="nav-button" onclick="showTab('correctTab')">Back to Correct</button>
+        <button class="nav-button" onclick="logout()">Logout</button>
+    </div>
+</div>
+
+<script>
+let token = null;
+
+function showTab(tabId) {
+    const tabs = ['authTab', 'correctTab', 'historyTab'];
+    tabs.forEach(id => document.getElementById(id).classList.add('hidden'));
+    document.getElementById(tabId).classList.remove('hidden');
+}
+
+async function register() {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const res = await fetch('http://127.0.0.1:8000/register', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({username, password})
+    });
+    const data = await res.json();
+    document.getElementById('authMsg').innerText = data.message || data.detail;
+}
+
+async function login() {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const form = new URLSearchParams();
+    form.append('username', username);
+    form.append('password', password);
+
+    const res = await fetch('http://127.0.0.1:8000/login', { method: 'POST', body: form });
+    const data = await res.json();
+    if (data.access_token) {
+        token = data.access_token;
+        showTab('correctTab');
+    } else {
+        document.getElementById('authMsg').innerText = data.detail;
+    }
+}
+
+async function correctText() {
+    const text = document.getElementById('inputText').value;
+    if (!token) { alert("Please login first!"); return; }
+    const res = await fetch('http://127.0.0.1:8000/correct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({text})
+    });
+    const data = await res.json();
+    document.getElementById('outputText').innerHTML =
+        `<h3>Spelling Corrected Text:</h3>${data.spelling_fixed}
+         <h3>Final Corrected Text:</h3>${data.final_corrected}`;
+}
+
+async function getHistory() {
+    if (!token) { alert("Please login first!"); return; }
+    const res = await fetch('http://127.0.0.1:8000/history', { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await res.json();
+    let html = "";
+    data.forEach(h => {
+        html += `Time: ${h.timestamp}\nInput: ${h.input_text}\nSpelling Fixed: ${h.spelling_fixed}\nFinal: ${h.final_corrected}\n\n`;
+    });
+    document.getElementById('historyList').innerText = html || "No history yet.";
+}
+
+function logout() {
+    token = null;
+    showTab('authTab');
+}
+</script>
+
+</body>
+</html>
+
+
