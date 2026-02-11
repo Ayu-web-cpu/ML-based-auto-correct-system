@@ -17,8 +17,10 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration
 from spellchecker import SpellChecker
 
 # Database Config
+import os
 
-DATABASE_URL = "postgresql://postgres:ayush@localhost:5432/autocorrect_db"
+DATABASE_URL = os.getenv("DATABASE_URL")
+
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine, autoflush=False)
@@ -225,3 +227,4 @@ def get_history(current_user: User = Depends(get_current_user), db: Session = De
         }
         for h in history
     ]
+
