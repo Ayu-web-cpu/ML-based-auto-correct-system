@@ -3,6 +3,7 @@ uvicorn
 sqlalchemy
 psycopg2-binary
 python-jose
+xgboost
 passlib[bcrypt]
 python-multipart
 pydantic
